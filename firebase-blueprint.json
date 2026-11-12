@@ -1,0 +1,145 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile representing a client or freelance designer.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name of the user",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user",
+          "format": "email",
+          "maxLength": 150
+        },
+        "role": {
+          "type": "string",
+          "description": "Account role in the portal",
+          "enum": ["freelancer", "client"]
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Company or studio name",
+          "maxLength": 150
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Account creation ISO timestamp"
+        }
+      },
+      "required": ["name", "email", "role", "companyName", "createdAt"]
+    },
+    "ClientPortal": {
+      "title": "ClientPortal",
+      "description": "A workspace portal shared between a freelancer and client.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Workspace project name",
+          "maxLength": 150
+        },
+        "freelancerId": {
+          "type": "string",
+          "description": "User ID of the freelance designer"
+        },
+        "clientEmail": {
+          "type": "string",
+          "description": "Client email address",
+          "format": "email"
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Client contact full name",
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of the workspace",
+          "maxLength": 300
+        },
+        "color": {
+          "type": "string",
+          "description": "Gradient color key for the portal"
+        }
+      },
+      "required": ["name", "freelancerId", "clientEmail", "clientName", "description"]
+    },
+    "VaultFile": {
+      "title": "VaultFile",
+      "description": "File record metadata stored in the client portal vault.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User ID of the uploader"
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "Display name of the uploader",
+          "maxLength": 120
+        },
+        "clientPortalId": {
+          "type": "string",
+          "description": "ID of the client portal workspace this file belongs to"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the file",
+          "maxLength": 255
+        },
+        "size": {
+          "type": "number",
+          "description": "File size in bytes"
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the file",
+          "maxLength": 100
+        },
+        "category": {
+          "type": "string",
+          "description": "Category classification of the file",
+          "enum": ["design", "document", "image", "archive", "other"]
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "ISO timestamp of upload"
+        },
+        "dataUrl": {
+          "type": "string",
+          "description": "Base64 or data URL for image previews and local storage"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional deliverable notes or feedback",
+          "maxLength": 1000
+        },
+        "downloadCount": {
+          "type": "number",
+          "description": "Number of times this file has been downloaded"
+        }
+      },
+      "required": ["userId", "ownerName", "clientPortalId", "name", "size", "mimeType", "category", "uploadDate"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents indexed by user ID."
+    },
+    "/portals/{portalId}": {
+      "schema": "ClientPortal",
+      "description": "Client workspace portals."
+    },
+    "/files/{fileId}": {
+      "schema": "VaultFile",
+      "description": "Uploaded file metadata and asset documents."
+    }
+  }
+}

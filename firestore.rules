@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Entity Validation: User
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'role', 'companyName', 'createdAt']) &&
+        data.keys().hasOnly(['name', 'email', 'role', 'companyName', 'createdAt']) &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() <= 150 &&
+        data.role in ['freelancer', 'client'] &&
+        data.companyName is string && data.companyName.size() <= 150 &&
+        data.createdAt is string;
+    }
+
+    // Entity Validation: ClientPortal
+    function isValidPortal(data) {
+      return data.keys().hasAll(['name', 'freelancerId', 'clientEmail', 'clientName', 'description']) &&
+        data.keys().hasOnly(['name', 'freelancerId', 'clientEmail', 'clientName', 'description', 'color']) &&
+        data.name is string && data.name.size() <= 150 &&
+        data.freelancerId is string && data.freelancerId.size() <= 128 &&
+        data.clientEmail is string && data.clientEmail.size() <= 150 &&
+        data.clientName is string && data.clientName.size() <= 100 &&
+        data.description is string && data.description.size() <= 300 &&
+        (!('color' in data) || data.color is string);
+    }
+
+    // Entity Validation: VaultFile
+    function isValidVaultFile(data) {
+      return data.keys().hasAll(['userId', 'ownerName', 'clientPortalId', 'name', 'size', 'mimeType', 'category', 'uploadDate']) &&
+        data.keys().hasOnly(['userId', 'ownerName', 'clientPortalId', 'name', 'size', 'mimeType', 'category', 'uploadDate', 'dataUrl', 'notes', 'downloadCount']) &&
+        data.userId is string && data.userId.size() <= 128 &&
+        data.ownerName is string && data.ownerName.size() <= 120 &&
+        data.clientPortalId is string && data.clientPortalId.size() <= 128 &&
+        data.name is string && data.name.size() <= 255 &&
+        data.size is number && data.size >= 0 &&
+        data.mimeType is string && data.mimeType.size() <= 100 &&
+        data.category in ['design', 'document', 'image', 'archive', 'other'] &&
+        data.uploadDate is string &&
+        (!('dataUrl' in data) || (data.dataUrl is string && data.dataUrl.size() <= 1048576)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+        (!('downloadCount' in data) || (data.downloadCount is number && data.downloadCount >= 0));
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId);
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if false;
+    }
+
+    // Client Portals Collection
+    match /portals/{portalId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidPortal(incoming()) && incoming().freelancerId == request.auth.uid;
+      allow update: if isSignedIn() && isValidPortal(incoming()) && existing().freelancerId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().freelancerId == request.auth.uid;
+    }
+
+    // Vault Files Collection
+    match /files/{fileId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidVaultFile(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && isValidVaultFile(incoming()) && (
+        existing().userId == request.auth.uid ||
+        // Allow updating downloadCount by anyone signed in
+        incoming().diff(existing()).affectedKeys().hasOnly(['downloadCount'])
+      );
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid);
+    }
+  }
+}
